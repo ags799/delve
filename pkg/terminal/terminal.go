@@ -10,8 +10,6 @@ import (
 
 	"syscall"
 
-	"github.com/peterh/liner"
-
 	"github.com/derekparker/delve/pkg/config"
 	"github.com/derekparker/delve/service"
 	"github.com/derekparker/delve/service/api"
@@ -28,7 +26,7 @@ type Term struct {
 	client   service.Client
 	conf     *config.Config
 	prompt   string
-	line     *liner.State
+	line     line
 	cmds     *Commands
 	dumb     bool
 	stdout   io.Writer
@@ -55,11 +53,18 @@ func New(client service.Client, conf *config.Config) *Term {
 		client: client,
 		conf:   conf,
 		prompt: "(dlv) ",
-		line:   liner.NewLiner(),
+		line:   newLine(),
 		cmds:   cmds,
 		dumb:   dumb,
 		stdout: w,
 	}
+}
+
+func NewForFile(client service.Client, conf *config.Config, initFile string) *Term {
+	t := New(client, conf)
+	t.line = newExitLine()
+	t.InitFile = initFile
+	return t
 }
 
 // Close returns the terminal to its previous mode.

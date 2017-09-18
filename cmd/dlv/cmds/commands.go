@@ -448,10 +448,6 @@ func execute(attachPid int, processArgs []string, conf *config.Config, coreFile 
 	}
 	defer listener.Close()
 
-	if Headless && (InitFile != "") {
-		fmt.Fprint(os.Stderr, "Warning: init file ignored\n")
-	}
-
 	var server interface {
 		Run() error
 		Stop(bool) error
@@ -496,6 +492,18 @@ func execute(attachPid int, processArgs []string, conf *config.Config, coreFile 
 		return 1
 	}
 
+	if InitFile != "" {
+		client := rpc2.NewClient(listener.Addr().String())
+		term := terminal.NewForFile(client, conf, InitFile)
+		fmt.Println("about to run initfile term")
+		status, err := term.Run()
+		fmt.Println("ran initfile term")
+		if err != nil {
+			fmt.Println("Could not execute init file: '%s'", err)
+			return status
+		}
+	}
+
 	var status int
 	if Headless {
 		// Print listener address
@@ -518,7 +526,6 @@ func execute(attachPid int, processArgs []string, conf *config.Config, coreFile 
 			}
 		}
 		term := terminal.New(client, conf)
-		term.InitFile = InitFile
 		status, err = term.Run()
 	}
 

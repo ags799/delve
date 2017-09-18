@@ -55,25 +55,19 @@ func newExitLine() line {
 }
 
 func (l exitLine) Prompt(prompt string) (string, error) {
-	return "", nil
+	return "", io.EOF
 }
 
 func (l exitLine) Close() error {
 	return nil
 }
 
-func (l exitLine) SetCompleter(f liner.Completer) {
-	panic("not implemented")
-}
+func (l exitLine) SetCompleter(f liner.Completer) {}
 
-func (l exitLine) ReadHistory(r io.Reader) {
-	panic("not implemented")
-}
+func (l exitLine) ReadHistory(r io.Reader) {}
 
-func (l exitLine) AppendHistory(item string) {
-	panic("not implemented")
-}
+func (l exitLine) AppendHistory(item string) {}
 
 func (l exitLine) WriteHistory(w io.Writer) (int, error) {
-	panic("not implemented")
+	return 0, nil
 }

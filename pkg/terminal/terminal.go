@@ -30,6 +30,7 @@ type Term struct {
 	cmds     *Commands
 	dumb     bool
 	stdout   io.Writer
+	forFile  bool
 	InitFile string
 }
 
@@ -63,6 +64,7 @@ func New(client service.Client, conf *config.Config) *Term {
 func NewForFile(client service.Client, conf *config.Config, initFile string) *Term {
 	t := New(client, conf)
 	t.line = newExitLine()
+	t.forFile = true
 	t.InitFile = initFile
 	return t
 }
@@ -115,13 +117,19 @@ func (t *Term) Run() (int, error) {
 
 	t.line.ReadHistory(f)
 	f.Close()
-	fmt.Println("Type 'help' for list of commands.")
+	if !t.forFile {
+		fmt.Println("Type 'help' for list of commands.")
+	}
 
 	if t.InitFile != "" {
 		err := t.cmds.executeFile(t, t.InitFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error executing init file: %s\n", err)
 		}
+	}
+
+	if t.forFile {
+		return 0, nil
 	}
 
 	for {

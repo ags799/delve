@@ -495,9 +495,8 @@ func execute(attachPid int, processArgs []string, conf *config.Config, coreFile 
 	if InitFile != "" {
 		client := rpc2.NewClient(listener.Addr().String())
 		term := terminal.NewForFile(client, conf, InitFile)
-		fmt.Println("about to run initfile term")
 		status, err := term.Run()
-		fmt.Println("ran initfile term")
+		fmt.Println("finished running initfile")
 		if err != nil {
 			fmt.Println("Could not execute init file: '%s'", err)
 			return status

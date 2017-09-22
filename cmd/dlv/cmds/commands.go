@@ -40,6 +40,8 @@ var (
 	BuildFlags string
 	// WorkingDir is the working directory for running the program.
 	WorkingDir string
+	// ContinueOnStart indicates that the debugger should be "continued" once started
+	ContinueOnStart bool
 
 	// Backend selection
 	Backend string
@@ -97,6 +99,7 @@ func New(docCall bool) *cobra.Command {
 	RootCommand.PersistentFlags().StringVar(&InitFile, "init", "", "Init file, executed by the terminal client.")
 	RootCommand.PersistentFlags().StringVar(&BuildFlags, "build-flags", buildFlagsDefault, "Build flags, to be passed to the compiler.")
 	RootCommand.PersistentFlags().StringVar(&WorkingDir, "wd", ".", "Working directory for running the program.")
+	RootCommand.PersistentFlags().BoolVarP(&ContinueOnStart, "continue-on-start", "c", false, "\"Continue\" the debugged process once the debugger is started.")
 	RootCommand.PersistentFlags().StringVar(&Backend, "backend", "default", `Backend selection:
 	default		Uses lldb on macOS, native everywhere else.
 	native		Native backend.
@@ -451,6 +454,9 @@ func execute(attachPid int, processArgs []string, conf *config.Config, coreFile 
 	if Headless && (InitFile != "") {
 		fmt.Fprint(os.Stderr, "Warning: init file ignored\n")
 	}
+	if ContinueOnStart && !Headless {
+		fmt.Fprint(os.Stderr, "Warning: can only continue-on-start if run in headless mode\n")
+	}
 
 	var server interface {
 		Run() error
@@ -500,6 +506,16 @@ func execute(attachPid int, processArgs []string, conf *config.Config, coreFile 
 	if Headless {
 		// Print listener address
 		fmt.Printf("API server listening at: %s\n", listener.Addr())
+		if ContinueOnStart {
+			client := client(listener, kind)
+			commands := terminal.DebugCommands(client)
+			term := terminal.New(client, conf)
+			err := commands.Call("continue", term)
+			if err != nil {
+				fmt.Println(err)
+			}
+			return 1
+		}
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGINT)
 		select {
@@ -509,14 +525,7 @@ func execute(attachPid int, processArgs []string, conf *config.Config, coreFile 
 		err = server.Stop(true)
 	} else {
 		// Create and start a terminal
-		client := rpc2.NewClient(listener.Addr().String())
-		if client.Recorded() && (kind == executingGeneratedFile || kind == executingGeneratedTest) {
-			// When using the rr backend remove the trace directory if we built the
-			// executable
-			if tracedir, err := client.TraceDirectory(); err == nil {
-				defer SafeRemoveAll(tracedir)
-			}
-		}
+		client := client(listener, kind)
 		term := terminal.New(client, conf)
 		term.InitFile = InitFile
 		status, err = term.Run()
@@ -527,6 +536,18 @@ func execute(attachPid int, processArgs []string, conf *config.Config, coreFile 
 	}
 
 	return status
+}
+
+func client(listener net.Listener, kind executeKind) *rpc2.RPCClient {
+	client := rpc2.NewClient(listener.Addr().String())
+	if client.Recorded() && (kind == executingGeneratedFile || kind == executingGeneratedTest) {
+		// When using the rr backend remove the trace directory if we built the
+		// executable
+		if tracedir, err := client.TraceDirectory(); err == nil {
+			defer SafeRemoveAll(tracedir)
+		}
+	}
+	return client
 }
 
 func gobuild(debugname, pkg string) error {
